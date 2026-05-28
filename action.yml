@@ -1,16 +1,16 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: 'Cloudcostify Budget Guard'
-description: 'Automated cloud infrastructure cost estimation and budget guard for pull requests. Supports Pulumi, Bicep, and CDK.'
+description: 'Automated cloud infrastructure cost estimation and budget guard for pull requests. Supports Pulumi and more providers are coming soon.'
 branding:
-  icon: 'dollar-sign'
-  color: 'green'
+  icon: 'shield'
+  color: 'orange'
 
 inputs:
   api-key:
     description: 'Your Cloudcostify API key. Get one at cloudcostify.io'
     required: true
   provider:
-    description: 'IaC provider to use. Supported values: pulumi, bicep, cdk'
+    description: 'IaC provider to use. Supported values: pulumi'
     required: false
     default: 'pulumi'
   working-directory:
