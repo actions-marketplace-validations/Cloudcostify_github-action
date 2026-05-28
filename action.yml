@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: 'Cloudcostify Budget Guard'
+description: 'Automated cloud infrastructure cost estimation and budget guard for pull requests. Supports Pulumi, Bicep, and CDK.'
+branding:
+  icon: 'dollar-sign'
+  color: 'green'
+
+inputs:
+  api-key:
+    description: 'Your Cloudcostify API key. Get one at cloudcostify.io'
+    required: true
+  provider:
+    description: 'IaC provider to use. Supported values: pulumi, bicep, cdk'
+    required: false
+    default: 'pulumi'
+  working-directory:
+    description: 'Path to the directory containing your IaC project files'
+    required: false
+    default: '.'
+  stack-name:
+    description: 'Pulumi stack name (e.g. dev, prod). Only required when provider is pulumi'
+    required: false
+    default: 'dev'
+  pulumi-access-token:
+    description: 'Pulumi access token. Only required when provider is pulumi'
+    required: false
+  budget:
+    description: 'Monthly budget limit in USD. When the estimated cost exceeds this value, budget-exceeded is set to true'
+    required: false
+  markdown-output:
+    description: 'File path to write a Markdown cost report (e.g. cloudcostify-report.md)'
+    required: false
+  cli-version:
+    description: 'Version of the Cloudcostify CLI to download. Use a release tag (e.g. v1.0.0) or "latest"'
+    required: false
+    default: 'latest'
+
+outputs:
+  budget-exceeded:
+    description: 'Set to "true" if the estimated monthly cost exceeds the configured budget limit'
+    value: ${{ steps.run-cli.outputs.budget_exceeded }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download Cloudcostify CLI
+      id: download-cli
+      shell: bash
+      run: |
+        VERSION="${{ inputs.cli-version }}"
+
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -sSfL \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/cloudcostify/cli/releases/latest" \
+            | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+        fi
+
+        echo "Downloading Cloudcostify CLI $VERSION"
+
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+
+        if [ "$ARCH" = "x86_64" ]; then ARCH="x64"; fi
+        if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
+
+        case "$OS" in
+          linux)  RID="linux-$ARCH" ;;
+          darwin) RID="osx-$ARCH" ;;
+          *)      RID="win-$ARCH" ;;
+        esac
+
+        BINARY="cloudcostify-$RID"
+        DOWNLOAD_URL="https://github.com/cloudcostify/cli/releases/download/$VERSION/$BINARY"
+
+        echo "Fetching: $DOWNLOAD_URL"
+        curl -sSfL "$DOWNLOAD_URL" -o "$RUNNER_TEMP/cloudcostify"
+        chmod +x "$RUNNER_TEMP/cloudcostify"
+
+        echo "cli-path=$RUNNER_TEMP/cloudcostify" >> "$GITHUB_OUTPUT"
+
+    - name: Run Cloudcostify CLI
+      id: run-cli
+      shell: bash
+      run: |
+        ARGS="--provider ${{ inputs.provider }} --directory ${{ inputs.working-directory }}"
+
+        if [ -n "${{ inputs.budget }}" ]; then
+          ARGS="$ARGS --budget ${{ inputs.budget }}"
+        fi
+
+        if [ -n "${{ inputs.markdown-output }}" ]; then
+          ARGS="$ARGS --out-markdown ${{ inputs.markdown-output }}"
+        fi
+
+        "${{ steps.download-cli.outputs.cli-path }}" $ARGS
+      env:
+        CLOUDCOSTIFY_API_KEY: ${{ inputs.api-key }}
+        CLOUDCOSTIFY_PULUMI_PROJECT_STACK_NAME: ${{ inputs.stack-name }}
+        CLOUDCOSTIFY_PULUMI_PROJECT_DIRECTORY_PATH: ${{ inputs.working-directory }}
+        PULUMI_ACCESS_TOKEN: ${{ inputs.pulumi-access-token }}
