@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: 'Cloudcostify Budget Guard'
-description: 'Automated cloud infrastructure cost estimation and budget guard for pull requests. Supports Pulumi and more providers are coming soon.'
+description: 'Automated cloud infrastructure cost estimation and budget guard for pull requests. Supports Pulumi'
 branding:
   icon: 'shield'
   color: 'orange'
